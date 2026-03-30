@@ -14,6 +14,11 @@ ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
+# ===== PROJECT NAME MAPPING =====
+PROJECT_NAME_MAPPING = {
+    "workxtream development": "Manage Workflow"
+}
+
 # ===== BACKGROUND =====
 st.markdown(
     """
@@ -26,7 +31,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ===== HEADER (LOGO + TITLE) =====
+# ===== HEADER =====
 col1, col2 = st.columns([1, 5])
 
 with col1:
@@ -107,88 +112,80 @@ def generate_release_notes(cleaned_stories):
 
     combined_input = ""
     for project, stories in cleaned_stories.items():
-        combined_input += f"\nPROJECT: {project}\n{stories}\n"
+        display_name = PROJECT_NAME_MAPPING.get(project.lower(), project)
+        combined_input += f"\nPROJECT: {display_name}\n{stories}\n"
 
     prompt = f"""
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
 GOAL:
-Generate clean, professional, user-friendly release notes (NOT technical documentation).
+Generate clean, professional, user-friendly release notes.
 
 ----------------------------------------
 
-STRUCTURE:
+STRICT FORMAT (MUST FOLLOW EXACTLY):
 
-INTRODUCTION
+**INTRODUCTION**
 
-- Start with the heading: INTRODUCTION
-- First paragraph:
+<blank line>
+
 We are excited to introduce the latest XDAS platform release, bringing focused enhancements across <projects>.
 
-- Then write 2–3 lines per project summarizing key updates
-- DO NOT use headings inside introduction
+<blank line>
+
+<Project summaries>
 
 ----------------------------------------
 
-PROJECT SECTIONS:
+PROJECT STRUCTURE:
 
-<Project Name>
+Each project MUST be formatted as:
 
-<Feature Name>
+**<Project Name>**
 
-Feature explanation (paragraph format)
+<blank line>
 
-----------------------------------------
+**<Feature Name>**
 
-STRICT WRITING RULES:
+<blank line>
 
-- DO NOT use sub-headings like:
-  ❌ "User actions"
-  ❌ "Why it matters"
-  ❌ "What changed"
-  ❌ "How it behaves"
-
-- Everything must be written in NATURAL PARAGRAPH FLOW
+<Feature explanation paragraph>
 
 ----------------------------------------
 
-FEATURE CONTENT GUIDELINES:
+STRICT RULES:
 
-Each feature must:
+- ALWAYS bold:
+  - INTRODUCTION
+  - Project names
+  - Feature names
 
-- Be 5–8 lines (not too short, not too long)
-- Start with what it enables or improves
-- Explain what changed
-- Include user interaction naturally (no labels)
-- Mention workflow or UI behavior if relevant
+- NEVER write content on same line as headings
+- ALWAYS leave one blank line after headings
 
-----------------------------------------
+- DO NOT include:
+  ❌ Questions
+  ❌ Suggestions
+  ❌ "Would you like me to..."
+  ❌ Any closing remarks
 
-CONTENT FILTERING:
-
-STRICTLY IGNORE:
-• Regression
-• Testing
-• QA steps
-• Acceptance criteria
+- End output immediately after last feature
 
 ----------------------------------------
 
-STYLE:
+FEATURE GUIDELINES:
 
-- Professional
-- Clear and readable
-- Slightly product/marketing tone
-- NOT robotic
-- NOT overly technical
+- 4–6 lines per feature
+- Clear, concise, product-focused
 
 ----------------------------------------
 
-FORMATTING:
+FILTER OUT:
 
-- Clean paragraphs
-- Bullet points ONLY if absolutely necessary
-- No excessive formatting
+- QA
+- Testing
+- Regression
+- Acceptance criteria
 
 ----------------------------------------
 
@@ -243,7 +240,6 @@ if st.button("Generate Release Notes"):
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    # 🔄 Fetch
     with st.spinner("🔄 Fetching latest updates..."):
         all_stories = {}
 
@@ -263,7 +259,6 @@ if st.button("Generate Release Notes"):
                     "ac": ac
                 })
 
-    # 🧹 Clean
     with st.spinner("🧹 Organizing release data..."):
         cleaned_stories = {}
 
@@ -276,19 +271,16 @@ if st.button("Generate Release Notes"):
                     "ac": clean_html(story["ac"])
                 })
 
-    # 🤖 Generate
     with st.spinner("🤖 Crafting release notes..."):
         release_notes = generate_release_notes(cleaned_stories)
 
-    # 📄 PDF
     with st.spinner("📄 Preparing your document..."):
         create_pdf(release_notes)
 
-    # ✅ Final Output
     st.success("✅ Release notes generated")
 
     st.subheader("Release Notes")
-    st.write(release_notes)
+    st.markdown(release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
         st.download_button("Download PDF", f, file_name="Release_Notes.pdf")
