@@ -118,100 +118,67 @@ def generate_release_notes(cleaned_stories):
     for project, stories in cleaned_stories.items():
         display_name = map_project_name(project)
         project_list.append(display_name)
-        combined_input += f"\nPROJECT: {display_name}\n{stories}\n"
+
+        for story in stories:
+            combined_input += f"\n- {story['title']}: {story['ac']}"
+
+        combined_input += "\n\n"
 
     project_string = ", ".join(project_list)
 
     prompt = f"""
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
-GOAL:
-Generate clean, professional, user-friendly release notes.
-
 ----------------------------------------
-
-STRICT FORMAT (MUST FOLLOW EXACTLY):
 
 **INTRODUCTION**
 
-<blank line>
-
-We are excited to introduce the latest XDAS platform release, bringing focused enhancements across all the following modules: {project_string}.
-
-IMPORTANT:
-- You MUST include every project listed above
-- Do NOT omit any project
-- Do NOT rename any project except:
-  - "workxtream development" MUST be written as "Manage Workflow"
-
-<blank line>
-
-PROJECT SUMMARIES (MANDATORY):
-
-After the introduction, write 2–3 lines for EACH project summarizing key updates.
-
-Rules:
-- Cover EVERY project listed
-- Each project must be mentioned explicitly
-- Write in natural paragraph flow (no headings)
-
-- Use natural, varied language
-- DO NOT repeat the same verbs across projects
-- DO NOT force words like "enhances", "improves", "introduces"
-
-- Let wording adapt to actual updates (features, fixes, improvements)
+We are excited to introduce the latest XDAS platform release, bringing focused enhancements across the following modules: {project_string}.
 
 ----------------------------------------
 
-PROJECT STRUCTURE:
+PROJECT SUMMARIES:
 
-Each project MUST be formatted as:
+After the introduction, write 2–3 lines for EACH project summarizing updates.
+
+- Mention ALL projects
+- Use natural language
+- Do NOT repeat same verbs
+
+----------------------------------------
+
+FEATURE GROUPING (VERY IMPORTANT):
+
+- Combine multiple related user stories into a single feature
+- DO NOT create one feature per story
+- Group similar capabilities together
+
+Examples:
+- different functionalities but referencing same feature → one feature
+- Security fixes → one feature
+
+- Aim for 3–6 features per project
+
+----------------------------------------
+
+STRUCTURE:
 
 **<Project Name>**
 
-<blank line>
-
 **<Feature Name>**
 
-<blank line>
-
-<Feature explanation paragraph>
+<Description>
 
 ----------------------------------------
 
-STRICT RULES:
+RULES:
 
-- ALWAYS bold:
-  - INTRODUCTION
-  - Project names
-  - Feature names
-
-- NEVER write content on same line as headings
-- ALWAYS leave one blank line after headings
-
-- DO NOT include:
-  ❌ Questions
-  ❌ Suggestions
-  ❌ "Would you like me to..."
-  ❌ Any closing remarks
-
-- End output immediately after last feature
-
-----------------------------------------
-
-FEATURE GUIDELINES:
-
-- 4–6 lines per feature
-- Clear, concise, product-focused
-
-----------------------------------------
-
-FILTER OUT:
-
-- QA
-- Testing
-- Regression
-- Acceptance criteria
+- Bold ALL headings
+- Always add spacing
+- No questions
+- No AI endings
+ - Do not include any stories mentioned as regression testing, ATS
+- End cleanly after last feature
 
 ----------------------------------------
 
@@ -230,20 +197,37 @@ INPUT:
 def create_pdf(release_notes):
     doc = SimpleDocTemplate("Release_Notes.pdf", pagesize=letter)
 
-    style = ParagraphStyle(
+    normal_style = ParagraphStyle(
         'Normal',
         fontName='Helvetica',
         fontSize=11,
-        leading=17,
+        leading=16,
         alignment=TA_JUSTIFY
+    )
+
+    bold_style = ParagraphStyle(
+        'Bold',
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=18
     )
 
     content = []
 
     for line in release_notes.split("\n"):
-        if line.strip():
-            content.append(Paragraph(line, style))
-            content.append(Spacer(1, 6))
+        line = line.strip()
+
+        if not line:
+            content.append(Spacer(1, 8))
+            continue
+
+        if line.startswith("**") and line.endswith("**"):
+            clean_line = line.replace("**", "")
+            content.append(Paragraph(clean_line, bold_style))
+        else:
+            content.append(Paragraph(line, normal_style))
+
+        content.append(Spacer(1, 6))
 
     doc.build(content)
 
