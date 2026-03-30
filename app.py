@@ -19,7 +19,7 @@ PROJECT_NAME_MAPPING = {
     "workxtream development": "Manage Workflow"
 }
 
-# ===== BACKGROUND =====
+# ===== UI =====
 st.markdown("""
 <style>
 .stApp {
@@ -28,7 +28,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ===== HEADER =====
 col1, col2 = st.columns([1, 5])
 
 with col1:
@@ -36,13 +35,13 @@ with col1:
 
 with col2:
     st.markdown(
-        "<h1 style='margin-bottom:0; font-size:28px;'>XDAS Release Notes</h1>",
+        "<h1 style='margin-bottom:0;'>XDAS Release Notes</h1>",
         unsafe_allow_html=True
     )
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ===== FUNCTIONS =====
+# ===== HELPERS =====
 
 def clean_html(raw_html):
     if not raw_html:
@@ -109,6 +108,8 @@ def get_work_item_details(ids):
     return response.json().get("value", [])
 
 
+# ===== CORE =====
+
 def generate_release_notes(cleaned_stories):
 
     combined_input = ""
@@ -135,7 +136,7 @@ STRICT FORMAT (MUST FOLLOW EXACTLY):
 
 <blank line>
 
-We are excited to introduce the latest XDAS platform release, bringing focused enhancements across ALL the following projects: {project_string}.
+We are excited to introduce the latest XDAS platform release, bringing focused enhancements across all the following modules: {project_string}.
 
 IMPORTANT:
 - You MUST include every project listed above
@@ -145,7 +146,20 @@ IMPORTANT:
 
 <blank line>
 
-<Project summaries>
+PROJECT SUMMARIES (MANDATORY):
+
+After the introduction, write 2–3 lines for EACH project summarizing key updates.
+
+Rules:
+- Cover EVERY project listed
+- Each project must be mentioned explicitly
+- Write in natural paragraph flow (no headings)
+
+- Use natural, varied language
+- DO NOT repeat the same verbs across projects
+- DO NOT force words like "enhances", "improves", "introduces"
+
+- Let wording adapt to actual updates (features, fixes, improvements)
 
 ----------------------------------------
 
@@ -214,10 +228,9 @@ INPUT:
 
 
 def create_pdf(release_notes):
-
     doc = SimpleDocTemplate("Release_Notes.pdf", pagesize=letter)
 
-    normal_style = ParagraphStyle(
+    style = ParagraphStyle(
         'Normal',
         fontName='Helvetica',
         fontSize=11,
@@ -229,7 +242,7 @@ def create_pdf(release_notes):
 
     for line in release_notes.split("\n"):
         if line.strip():
-            content.append(Paragraph(line, normal_style))
+            content.append(Paragraph(line, style))
             content.append(Spacer(1, 6))
 
     doc.build(content)
@@ -240,8 +253,7 @@ def create_pdf(release_notes):
 sprint = st.text_input("Sprint (e.g., 62)")
 projects = st.text_input("Projects (comma separated)")
 
-
-# ===== BUTTON =====
+# ===== ACTION =====
 
 if st.button("Generate Release Notes"):
 
@@ -252,7 +264,7 @@ if st.button("Generate Release Notes"):
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    with st.spinner("🔄 Fetching latest updates..."):
+    with st.spinner("🔄 Fetching data..."):
         all_stories = {}
 
         for project in PROJECTS:
@@ -263,15 +275,12 @@ if st.button("Generate Release Notes"):
 
             for item in details:
                 fields = item.get("fields", {})
-                title = fields.get("System.Title", "")
-                ac = fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
-
                 all_stories[project].append({
-                    "title": title,
-                    "ac": ac
+                    "title": fields.get("System.Title", ""),
+                    "ac": fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
                 })
 
-    with st.spinner("🧹 Organizing release data..."):
+    with st.spinner("🧹 Cleaning data..."):
         cleaned_stories = {}
 
         for project, stories in all_stories.items():
@@ -283,10 +292,10 @@ if st.button("Generate Release Notes"):
                     "ac": clean_html(story["ac"])
                 })
 
-    with st.spinner("🤖 Crafting release notes..."):
+    with st.spinner("🤖 Generating release notes..."):
         release_notes = generate_release_notes(cleaned_stories)
 
-    with st.spinner("📄 Preparing your document..."):
+    with st.spinner("📄 Creating PDF..."):
         create_pdf(release_notes)
 
     st.success("✅ Release notes generated")
