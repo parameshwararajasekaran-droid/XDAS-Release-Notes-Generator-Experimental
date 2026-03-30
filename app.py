@@ -16,7 +16,8 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # ===== PROJECT NAME MAPPING =====
 PROJECT_NAME_MAPPING = {
-    "workxtream development": "Manage Workflow"
+    "workxtream development": "Manage Workflow",
+    "mojo v3": "Mojo"
 }
 
 # ===== UI =====
@@ -34,10 +35,7 @@ with col1:
     st.image("logo.png", width=100)
 
 with col2:
-    st.markdown(
-        "<h1 style='margin-bottom:0;'>XDAS Release Notes</h1>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<h1>XDAS Release Notes</h1>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -61,26 +59,23 @@ def get_iterations(project, ITERATIONS):
     response = requests.get(url, auth=HTTPBasicAuth('', PAT))
     data = response.json()
 
-    iterations = []
-    for it in data.get("value", []):
-        name = it.get("name", "")
-        if any(iter_name in name for iter_name in ITERATIONS):
-            iterations.append(it.get("path"))
-
-    return iterations
+    return [
+        it.get("path")
+        for it in data.get("value", [])
+        if any(i in it.get("name", "") for i in ITERATIONS)
+    ]
 
 
 def get_work_item_ids(project, ITERATIONS):
     url = f"https://dev.azure.com/{ORG}/{project}/_apis/wit/wiql?api-version=7.0"
 
     iteration_paths = get_iterations(project, ITERATIONS)
-
     if not iteration_paths:
         return []
 
-    iteration_filter = " OR ".join([
-        f"[System.IterationPath] UNDER '{it}'" for it in iteration_paths
-    ])
+    iteration_filter = " OR ".join(
+        [f"[System.IterationPath] UNDER '{it}'" for it in iteration_paths]
+    )
 
     query = {
         "query": f"""
@@ -119,15 +114,17 @@ def generate_release_notes(cleaned_stories):
         display_name = map_project_name(project)
         project_list.append(display_name)
 
-        for story in stories:
-            combined_input += f"\n- {story['title']}: {story['ac']}"
+        combined_input += f"\nPROJECT: {display_name}\n"
 
-        combined_input += "\n\n"
+        for story in stories:
+            combined_input += f"- {story['title']}: {story['ac']}\n"
+
+        combined_input += "\n"
 
     project_string = ", ".join(project_list)
 
     prompt = f"""
-You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
+You are a Product Marketing Manager writing release notes for XDAS.
 
 ----------------------------------------
 
@@ -135,33 +132,17 @@ You are a Product Marketing Manager writing high-quality release notes for the X
 
 We are excited to introduce the latest XDAS platform release, bringing focused enhancements across the following modules: {project_string}.
 
-----------------------------------------
+After this, write a short summary paragraph covering each project naturally.
 
-PROJECT SUMMARIES:
-
-After the introduction, write 2–3 lines for EACH project summarizing updates.
-
-- Mention ALL projects
-- Use natural language
-- Do NOT repeat same verbs
+Example style:
+"In Manage Workflow..."
+"Studios introduces..."
+"Mojo focuses on..."
+"HITL Studio enhances..."
 
 ----------------------------------------
 
-FEATURE GROUPING (VERY IMPORTANT):
-
-- Combine multiple related user stories into a single feature
-- DO NOT create one feature per story
-- Group similar capabilities together
-
-Examples:
-- different functionalities but referencing same feature → one feature
-- Security fixes → one feature
-
-- Aim for 3–6 features per project
-
-----------------------------------------
-
-STRUCTURE:
+PROJECT STRUCTURE:
 
 **<Project Name>**
 
@@ -171,14 +152,37 @@ STRUCTURE:
 
 ----------------------------------------
 
+FEATURE GROUPING (LIGHT):
+
+- Combine only closely related stories
+- Do NOT over-group everything
+- Keep features meaningful
+
+- Aim for 4–8 features per project
+
+----------------------------------------
+
+FEATURE NAMING:
+
+- Use short, clean, product-friendly names
+- Avoid overly technical or long titles
+
+GOOD:
+- Amazon S3- Run and push worklow output in JSON Format
+- Continuous workflow processing for Filter ETL
+
+BAD:
+- Long technical titles combining multiple ideas
+
+----------------------------------------
+
 RULES:
 
 - Bold ALL headings
-- Always add spacing
-- No questions
-- No AI endings
- - Do not include any stories mentioned as regression testing, ATS
-- End cleanly after last feature
+- Keep spacing clean
+- Do NOT repeat project name unnecessarily
+- No AI questions or endings
+- Do not include stories involving Regression testingM ATS
 
 ----------------------------------------
 
@@ -222,8 +226,7 @@ def create_pdf(release_notes):
             continue
 
         if line.startswith("**") and line.endswith("**"):
-            clean_line = line.replace("**", "")
-            content.append(Paragraph(clean_line, bold_style))
+            content.append(Paragraph(line.replace("**", ""), bold_style))
         else:
             content.append(Paragraph(line, normal_style))
 
@@ -242,49 +245,44 @@ projects = st.text_input("Projects (comma separated)")
 if st.button("Generate Release Notes"):
 
     if not sprint or not projects:
-        st.warning("Please enter both Sprint and Projects")
+        st.warning("Enter sprint and projects")
         st.stop()
 
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    with st.spinner("🔄 Fetching data..."):
+    with st.spinner("Fetching data..."):
         all_stories = {}
 
         for project in PROJECTS:
             ids = get_work_item_ids(project, ITERATIONS)
             details = get_work_item_details(ids)
 
-            all_stories[project] = []
+            all_stories[project] = [
+                {
+                    "title": d["fields"].get("System.Title", ""),
+                    "ac": d["fields"].get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
+                }
+                for d in details
+            ]
 
-            for item in details:
-                fields = item.get("fields", {})
-                all_stories[project].append({
-                    "title": fields.get("System.Title", ""),
-                    "ac": fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
-                })
+    with st.spinner("Cleaning..."):
+        cleaned_stories = {
+            p: [
+                {"title": s["title"], "ac": clean_html(s["ac"])}
+                for s in stories
+            ]
+            for p, stories in all_stories.items()
+        }
 
-    with st.spinner("🧹 Cleaning data..."):
-        cleaned_stories = {}
-
-        for project, stories in all_stories.items():
-            cleaned_stories[project] = []
-
-            for story in stories:
-                cleaned_stories[project].append({
-                    "title": story["title"],
-                    "ac": clean_html(story["ac"])
-                })
-
-    with st.spinner("🤖 Generating release notes..."):
+    with st.spinner("Generating..."):
         release_notes = generate_release_notes(cleaned_stories)
 
-    with st.spinner("📄 Creating PDF..."):
+    with st.spinner("Creating PDF..."):
         create_pdf(release_notes)
 
-    st.success("✅ Release notes generated")
+    st.success("Done")
 
-    st.subheader("Release Notes")
     st.markdown(release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
