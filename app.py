@@ -189,7 +189,7 @@ STRICT RULES:
 
 - NEVER write content on same line as headings
 - ALWAYS leave one blank line after headings
-- Never include any user stories that contain the following headings Post deployment testing, Regression testing, ATS 
+- Never include any user stories that contain the following phrases in the their titles Post deployment testing, Regression testing, Deployment validation, ATS 
 
 - DO NOT include:
   ❌ Questions
