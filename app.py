@@ -189,13 +189,14 @@ STRICT RULES:
 
 - NEVER write content on same line as headings
 - ALWAYS leave one blank line after headings
+- Never include any user stories that contain the following headings Post deployment testing, Regression testing, ATS 
 
 - DO NOT include:
   ❌ Questions
   ❌ Suggestions
   ❌ "Would you like me to..."
   ❌ Any closing remarks
-  ❌ Stories named as regression or ATS
+  
 
 - End output immediately after last feature
 
