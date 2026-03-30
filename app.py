@@ -20,16 +20,13 @@ PROJECT_NAME_MAPPING = {
 }
 
 # ===== BACKGROUND =====
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ===== HEADER =====
 col1, col2 = st.columns([1, 5])
@@ -54,6 +51,10 @@ def clean_html(raw_html):
     clean = unescape(clean)
     clean = re.sub(r'\s+', ' ', clean).strip()
     return clean
+
+
+def map_project_name(project):
+    return PROJECT_NAME_MAPPING.get(project.lower(), project)
 
 
 def get_iterations(project, ITERATIONS):
@@ -111,9 +112,14 @@ def get_work_item_details(ids):
 def generate_release_notes(cleaned_stories):
 
     combined_input = ""
+    project_list = []
+
     for project, stories in cleaned_stories.items():
-        display_name = PROJECT_NAME_MAPPING.get(project.lower(), project)
+        display_name = map_project_name(project)
+        project_list.append(display_name)
         combined_input += f"\nPROJECT: {display_name}\n{stories}\n"
+
+    project_string = ", ".join(project_list)
 
     prompt = f"""
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
@@ -129,7 +135,13 @@ STRICT FORMAT (MUST FOLLOW EXACTLY):
 
 <blank line>
 
-We are excited to introduce the latest XDAS platform release, bringing focused enhancements across <projects>.
+We are excited to introduce the latest XDAS platform release, bringing focused enhancements across ALL the following projects: {project_string}.
+
+IMPORTANT:
+- You MUST include every project listed above
+- Do NOT omit any project
+- Do NOT rename any project except:
+  - "workxtream development" MUST be written as "Manage Workflow"
 
 <blank line>
 
@@ -229,7 +241,7 @@ sprint = st.text_input("Sprint (e.g., 62)")
 projects = st.text_input("Projects (comma separated)")
 
 
-# ===== MAIN BUTTON =====
+# ===== BUTTON =====
 
 if st.button("Generate Release Notes"):
 
